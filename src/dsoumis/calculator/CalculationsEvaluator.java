@@ -24,12 +24,15 @@ public class CalculationsEvaluator {
 		return digit - '0';
 	}
 
-	private int exp() throws IOException, ParseError {
-//		System.out.println("phra" + this.lookaheadToken);
-//		System.out.println(49 > '0');
-//		System.out.println("to 9" + '9');
-//		System.out.println(0 == '0');
+	private boolean isLookaheadTokenEof() {
+		if (this.lookaheadToken == '\n' || this.lookaheadToken == -1 || this.lookaheadToken == 13) {
+			return true;
+		} else {
+			return false;
+		}
+	}
 
+	private int exp() throws IOException, ParseError {
 		/* Match expr −−> term exprTail */
 		if (this.lookaheadToken >= '0' && this.lookaheadToken <= '9' || this.lookaheadToken == '(') {
 			final int termValue = this.term();
@@ -41,21 +44,18 @@ public class CalculationsEvaluator {
 	private int expTail(final int termValueParam) throws IOException, ParseError {
 		/* Match expTail −−> + term expTail */
 		if (this.lookaheadToken == '+') {
-			// this.consume(this.lookaheadToken);
 			this.consume('+');
 			final int termValue = this.term();
 			return termValueParam + this.expTail(termValue);
 
 			/* Match expTail −−> - term expTail */
 		} else if (this.lookaheadToken == '-') {
-			// this.consume(this.lookaheadToken);
 			this.consume('-');
 			final int termValue = this.term();
 			return termValueParam - this.expTail(termValue);
 
 			/* Match exprTail --> empty */
-		} else if (this.lookaheadToken == ')' || this.lookaheadToken == '\n' || this.lookaheadToken == -1
-				|| this.lookaheadToken == 13) {
+		} else if (this.lookaheadToken == ')' || this.isLookaheadTokenEof()) {
 
 			return termValueParam;
 		}
@@ -85,11 +85,10 @@ public class CalculationsEvaluator {
 			return numValueParam / this.termTail(numValue);
 
 			/* Match termTail --> empty */
-		} else if (this.lookaheadToken == ')' || this.lookaheadToken == '\n' || this.lookaheadToken == -1
-				|| this.lookaheadToken == 13 || this.lookaheadToken == '+' || this.lookaheadToken == '-') {
+		} else if (this.lookaheadToken == ')' || this.isLookaheadTokenEof() || this.lookaheadToken == '+'
+				|| this.lookaheadToken == '-') {
 			return numValueParam;
 		}
-		System.out.println(this.lookaheadToken);
 		throw new ParseError();
 	}
 
@@ -98,7 +97,9 @@ public class CalculationsEvaluator {
 		if (this.lookaheadToken >= '0' && this.lookaheadToken <= '9') {
 			final int digit = this.evalDigit(this.lookaheadToken);
 			this.consume(this.lookaheadToken);
-			return digit;
+			final StringBuilder concatenatedDigits = new StringBuilder();
+			concatenatedDigits.append(String.valueOf(digit));
+			return this.numTail(concatenatedDigits);
 			/* Match num --> (exp) */
 		} else if (this.lookaheadToken == '(') {
 			this.consume('(');
@@ -109,21 +110,24 @@ public class CalculationsEvaluator {
 		throw new ParseError();
 	}
 
-//	private boolean numTail() throws IOException, ParseError {
-//		if (this.lookaheadToken == '+' || this.lookaheadToken == '-' || this.lookaheadToken == '*'
-//				|| this.lookaheadToken == '/' || this.lookaheadToken == '\n' || this.lookaheadToken == -1) {
-//			return digit;
-//		} else if (this.lookaheadToken >= '0' && this.lookaheadToken <= '9') {
-//			return 1;
-//		} else {
-//			throw new ParseError();
-//		}
-//	}
+	private int numTail(final StringBuilder concatenatedDigits) throws IOException, ParseError {
+		/* Match numTail --> digit numTail */
+		if (this.lookaheadToken >= '0' && this.lookaheadToken <= '9') {
+			final int digit = this.evalDigit(this.lookaheadToken);
+			this.consume(this.lookaheadToken);
+			concatenatedDigits.append(String.valueOf(digit));
+			return this.numTail(concatenatedDigits);
+			/* Match numTail --> empty */
+		} else if (this.lookaheadToken == ')' || this.isLookaheadTokenEof() || this.lookaheadToken == '+'
+				|| this.lookaheadToken == '-' || this.lookaheadToken == '*' || this.lookaheadToken == '/') {
+			return Integer.valueOf(concatenatedDigits.toString());
+		}
+		throw new ParseError();
+	}
 
 	public int eval() throws IOException, ParseError {
 		final int rv = this.exp();
-		if (this.lookaheadToken != '\n' && this.lookaheadToken != -1 && this.lookaheadToken != 13) {
-			System.out.println(this.lookaheadToken);
+		if (!this.isLookaheadTokenEof()) {
 			throw new ParseError();
 		}
 		return rv;
